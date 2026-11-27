@@ -57,6 +57,14 @@ $ npm run test:e2e
 $ npm run test:cov
 ```
 
+## Vendor inventory
+
+Apply [002_products.sql](supabase/migrations/002_products.sql) after the auth migration in the team's Supabase project. It creates the vendor-owned `products` table and `product-images` Storage bucket in the same project. Configure `DATABASE_URL`, `SUPABASE_URL`, and `SUPABASE_SERVICE_ROLE_KEY` in the backend environment. The bucket serves listing images publicly. Upload and deletion use the backend credential.
+
+The API is under `/api/v1/vendor/products` and uses the existing vendor access token. Create and replace requests accept JSON or `multipart/form-data` with an optional `image` file. Pricing uses integer USD cents. The endpoint uses `PATCH /:id/status` for active status and `POST /:id/duplicate` for an inactive copy.
+
+To run the inventory integration test, point `PRODUCTS_TEST_DATABASE_URL` to a dedicated test database with the migrations applied, then run `npm run test:e2e`. The test exercises PostgreSQL and substitutes a local test double for Storage requests.
+
 ## Deployment
 
 When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
@@ -71,6 +79,8 @@ $ mau deploy
 With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
 
 ## Observability
+
+Set both `OBSERVE_APP_KEY` and `OBSERVE_APP_SECRET` to enable NestJS Observe. The backend starts without an Observe worker when either variable is empty.
 
 In production applications, observability is essential for understanding how your system behaves, detecting issues early, and maintaining reliable performance.
 
