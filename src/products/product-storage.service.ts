@@ -15,8 +15,25 @@ export interface ProductImage {
 
 @Injectable()
 export class ProductStorageService {
-  private get baseUrl() {
+  private readonly memoryImages = new Map<string, string>();
+
+  private get configuredUrl(): string | null {
     const url = process.env.SUPABASE_URL?.trim().replace(/\/+$/, '');
+    if (!url || url.includes('[project-ref]')) return null;
+    return url;
+  }
+
+  private get configuredKey(): string | null {
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+    return key || null;
+  }
+
+  private get isConfigured(): boolean {
+    return Boolean(this.configuredUrl && this.configuredKey);
+  }
+
+  private get baseUrl() {
+    const url = this.configuredUrl;
     if (!url)
       throw new ServiceUnavailableException(
         'Product image storage is not configured.',
@@ -25,6 +42,16 @@ export class ProductStorageService {
   }
 
   publicUrl(path: string): string {
+    if (
+      path.startsWith('http://') ||
+      path.startsWith('https://') ||
+      path.startsWith('data:')
+    ) {
+      return path;
+    }
+    const localDataUrl = this.memoryImages.get(path);
+    if (localDataUrl) return localDataUrl;
+    if (!this.configuredUrl) return path;
     return `${this.baseUrl}/public/${BUCKET}/${path}`;
   }
 
@@ -34,6 +61,13 @@ export class ProductStorageService {
   ): Promise<string> {
     const extension = this.imageExtension(buffer, mimetype);
     const path = `${vendorId}/${randomUUID()}.${extension}`;
+    if (!this.isConfigured) {
+      this.memoryImages.set(
+        path,
+        `data:${mimetype};base64,${buffer.toString('base64')}`,
+      );
+      return path;
+    }
     await this.request(`${this.baseUrl}/${BUCKET}/${path}`, {
       method: 'POST',
       headers: { 'Content-Type': mimetype, 'Cache-Control': 'max-age=3600' },
@@ -43,6 +77,9 @@ export class ProductStorageService {
   }
 
   async remove(path: string): Promise<void> {
+    if (this.memoryImages.delete(path) || !this.isConfigured) {
+      return;
+    }
     await this.request(`${this.baseUrl}/${BUCKET}`, {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },

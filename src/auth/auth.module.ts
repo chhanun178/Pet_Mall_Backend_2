@@ -17,6 +17,6 @@ import { OtpMailerService } from './otp-mailer.service.js';
     RolesGuard,
     AuthRateLimitGuard,
   ],
-  exports: [AuthService, JwtAuthGuard, RolesGuard],
+  exports: [AuthRepository, AuthService, JwtAuthGuard, RolesGuard],
 })
 export class AuthModule {}
